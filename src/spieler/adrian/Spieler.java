@@ -20,4 +20,24 @@ public class Spieler implements OthelloSpieler{
     public String meinName() {
         return "adrian";
     }
+
+    private boolean isMoveValid(int x, int y){
+        return true;
+    }
+
+    private Object getBestMove(int depth){
+        return null;
+    }
+
+    private Object getPossibleMoves(){
+        return null;
+    }
+
+    private int getPointsMove(int x, int y){
+        return 0;
+    }
+
+    private boolean move(int x, int y){
+        return true;
+    }
 }
