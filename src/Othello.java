@@ -21,7 +21,8 @@ public class Othello
                 new ArrayList<String>();
         //Die Spieler
         spieler.add("spieler.Referenzspieler"); //Referenzspieler in Standardeinstellung
-        spieler.add("spieler.Referenzspieler:6"); //Referenzspieler mit Zugtiefe 6
+        //spieler.add("spieler.Referenzspieler:6"); //Referenzspieler mit Zugtiefe 6
+        spieler.add("spieler.adrian.Spieler");
 
         new OthelloArena(150,  //Gesamtbedenkzeit in Sekunden
                 spieler,                //Spielerliste
