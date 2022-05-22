@@ -14,16 +14,19 @@ public class Spieler implements OthelloSpieler{
         // Update the board
         if (zug != null){
             Move previousMove = new Move(zug);
-            board[previousMove.getColumn().toInt()][previousMove.getRow()] = Color.BLACK;
+            move(board, previousMove, opponent, player);
         }
-        getPossibleMoves(board);
 
-        // Calculate player move
-        Move nextMove = null;
+        ArrayList<Move> possibleMoves = getPossibleMoves(this.board, this.player, this.opponent);
 
-        // TODO: Logic here
+        if(possibleMoves.isEmpty()){
+            return Zug.passenZug();
+        }
 
-        return Move.moveToZug(nextMove);
+        Move bestMove = possibleMoves.get(0);
+        move(board, bestMove, player, opponent);
+
+        return Move.moveToZug(bestMove);
     }
 
     @Override
@@ -36,8 +39,6 @@ public class Spieler implements OthelloSpieler{
         }
         else if(player == Color.WHITE) {
             opponent = Color.BLACK;
-        } else {
-            // Exception: can't assign player or opponent
         }
 
         // Prepare the board
@@ -53,7 +54,8 @@ public class Spieler implements OthelloSpieler{
     }
 
     private enum Column {A(0),B(1),C(2),D(3),E(4),F(5),G(6),H(7);
-        private int toInt;
+        private final int toInt;
+
         Column(int value) {
             this.toInt = value;
         }
@@ -72,7 +74,7 @@ public class Spieler implements OthelloSpieler{
                                                             x == 6 ? Column.G :
                                                                     x == 7 ? Column.H : null;
         }
-    };
+    }
 
     public static class Move{
         final Column column;
@@ -120,7 +122,8 @@ public class Spieler implements OthelloSpieler{
     }
 
     private enum Color {BLACK(1),WHITE(2);
-        private int toInt;
+        private final int toInt;
+
         Color(int value) {
             this.toInt = value;
         }
@@ -133,12 +136,12 @@ public class Spieler implements OthelloSpieler{
             return farbe.equals(Farbe.WEISS) ? Color.WHITE :
                     farbe.equals(Farbe.SCHWARZ) ? Color.BLACK : null;
         }
-    };
+    }
 
     // Members
     private static final int FIELD_SIZE = 8;
 
-    private Color[][] board = new Color[8][8];
+    private final Color[][] board = new Color[8][8];
     private int searchDepth;
     private Color player;
     private Color opponent;
@@ -153,7 +156,27 @@ public class Spieler implements OthelloSpieler{
     }
 
     // Methods
-    private boolean isMoveValid(Color[][] board, Move move){
+    private ArrayList<Move> getPossibleMoves(Color[][] board, Color player, Color opponent) throws ZugException {
+        ArrayList<Move> list = new ArrayList<Move>();
+
+        for (int i = 0; i < FIELD_SIZE; i++) {
+            for (int j = 0; j < FIELD_SIZE; j++) {
+
+                // No need to check occupied field
+                if(board[i][j] == opponent || board[i][j] == player){
+                    continue;
+                }
+
+                Move move = new Move(Column.toColumn(i), j + 1);
+                if(isMoveValid(board, move, player, opponent)){
+                    list.add(move);
+                }
+            }
+        }
+        return list;
+    }
+
+    private boolean isMoveValid(Color[][] board, Move move, Color player, Color opponent) {
         // Positions of the move
         int column = move.getColumn().toInt();
         int row = move.getRow();
@@ -162,7 +185,7 @@ public class Spieler implements OthelloSpieler{
 
         // Check north
         for (int j = row - 1; j >= 0; j--) {
-            if(board[column][j] == null){
+            if(board[column][j] == null || board[column][j] == player && opponentPieces == 0){
                 break;
             }
             else if(board[column][j] == opponent){
@@ -176,7 +199,7 @@ public class Spieler implements OthelloSpieler{
         opponentPieces = 0;
         int i = column + 1;
         for (int j = row - 1; j >= 0 && i < FIELD_SIZE; j--) {
-            if(board[i][j] == null){
+            if(board[i][j] == null || board[i][j] == player && opponentPieces == 0){
                 break;
             }
             else if(board[i][j] == opponent){
@@ -190,7 +213,7 @@ public class Spieler implements OthelloSpieler{
         // Check east
         opponentPieces = 0;
         for (i = column + 1; i < FIELD_SIZE; i++) {
-            if(board[i][row] == null){
+            if(board[i][row] == null || board[i][row] == player && opponentPieces == 0){
                 break;
             }
             else if(board[i][row] == opponent){
@@ -204,7 +227,7 @@ public class Spieler implements OthelloSpieler{
         opponentPieces = 0;
         i = column + 1;
         for (int j = row + 1; j < FIELD_SIZE && i < FIELD_SIZE; j++) {
-            if(board[i][j] == null){
+            if(board[i][j] == null || board[i][j] == player && opponentPieces == 0){
                 break;
             }
             else if(board[i][j] == opponent){
@@ -218,7 +241,7 @@ public class Spieler implements OthelloSpieler{
         // Check south
         opponentPieces = 0;
         for (int j = row + 1; j < FIELD_SIZE ; j++) {
-            if(board[column][j] == null){
+            if(board[column][j] == null || board[column][j] == player && opponentPieces == 0){
                 break;
             }
             else if(board[column][j] == opponent){
@@ -232,7 +255,7 @@ public class Spieler implements OthelloSpieler{
         opponentPieces = 0;
         i = column - 1;
         for (int j = row + 1; j < FIELD_SIZE && i >= 0; j++) {
-            if(board[i][j] == null){
+            if(board[i][j] == null || board[i][j] == player && opponentPieces == 0){
                 break;
             }
             else if(board[i][j] == opponent){
@@ -246,7 +269,7 @@ public class Spieler implements OthelloSpieler{
         // Check west
         opponentPieces = 0;
         for (i = column - 1; i >= 0; i--) {
-            if(board[i][row] == null){
+            if(board[i][row] == null || board[i][row] == player && opponentPieces == 0){
                 break;
             }
             else if(board[i][row] == opponent){
@@ -260,7 +283,7 @@ public class Spieler implements OthelloSpieler{
         opponentPieces = 0;
         i = column - 1;
         for (int j = row - 1; j >= 0 &&  i >= 0; j--) {
-            if(board[i][j] == null){
+            if(board[i][j] == null || board[i][j] == player && opponentPieces == 0){
                 break;
             }
             else if(board[i][j] == opponent){
@@ -274,32 +297,176 @@ public class Spieler implements OthelloSpieler{
         return false;
     }
 
-    private Move getBestMove(Color[][] board, int depth) throws ZugException {
-        Move bestMove = null;
-        ArrayList<Move> possibleMoves = getPossibleMoves(board);
-        return bestMove;
-    }
+    private int move(Color[][] board, Move move, Color player, Color opponent) throws ZugException {
+        ArrayList<Move> toFlip = new ArrayList<Move>();
+        ArrayList<Move> tmp = new ArrayList<Move>();
 
-    private ArrayList<Move> getPossibleMoves(Color[][] board) throws ZugException {
-        ArrayList<Move> list = new ArrayList<Move>();
+        int column = move.getColumn().toInt();
+        int row = move.getRow();
 
-        for (int i = 0; i < FIELD_SIZE; i++) {
-            for (int j = 0; j < FIELD_SIZE; j++) {
-                Move move = new Move(Column.toColumn(i), j + 1);
-                if(isMoveValid(board, move)){
-                    list.add(move);
-                }
+        board[column][row] = player;
+
+        // Check pieces to flip
+        int opponentPieces = 0;
+        tmp.clear();
+        // Check north
+        for (int j = row - 1; j >= 0; j--) {
+            if(board[column][j] == null){
+                break;
+            }
+            else if(board[column][j] == opponent){
+                opponentPieces++;
+                tmp.add(new Move(Column.toColumn(column), j + 1));
+            }
+            else if(board[column][j] == player && opponentPieces > 0){
+                toFlip.addAll(tmp);
+                tmp.clear();
             }
         }
-        return list;
+        // Check north-east
+        opponentPieces = 0;
+        tmp.clear();
+        int i = column + 1;
+        for (int j = row - 1; j >= 0 && i < FIELD_SIZE; j--) {
+            if(board[i][j] == null){
+                break;
+            }
+            else if(board[i][j] == opponent){
+                opponentPieces++;
+                tmp.add(new Move(Column.toColumn(i), j + 1));
+            }
+            else if(board[i][j] == player && opponentPieces > 0){
+                toFlip.addAll(tmp);
+                tmp.clear();
+            }
+            i++;
+        }
+        // Check east
+        opponentPieces = 0;
+        tmp.clear();
+        for (i = column + 1; i < FIELD_SIZE; i++) {
+            if(board[i][row] == null){
+                break;
+            }
+            else if(board[i][row] == opponent){
+                opponentPieces++;
+                tmp.add(new Move(Column.toColumn(i), row + 1));
+            }
+            else if(board[i][row] == player && opponentPieces > 0){
+                toFlip.addAll(tmp);
+                tmp.clear();
+            }
+        }
+        // Check south-east
+        opponentPieces = 0;
+        tmp.clear();
+        i = column + 1;
+        for (int j = row + 1; j < FIELD_SIZE && i < FIELD_SIZE; j++) {
+            if(board[i][j] == null){
+                break;
+            }
+            else if(board[i][j] == opponent){
+                opponentPieces++;
+                tmp.add(new Move(Column.toColumn(i), j + 1));
+            }
+            else if(board[i][j] == player && opponentPieces > 0){
+                toFlip.addAll(tmp);
+                tmp.clear();
+            }
+            i++;
+        }
+        // Check south
+        opponentPieces = 0;
+        tmp.clear();
+        for (int j = row + 1; j < FIELD_SIZE ; j++) {
+            if(board[column][j] == null){
+                break;
+            }
+            else if(board[column][j] == opponent){
+                opponentPieces++;
+                tmp.add(new Move(Column.toColumn(column), j + 1));
+            }
+            else if(board[column][j] == player && opponentPieces > 0){
+                toFlip.addAll(tmp);
+                tmp.clear();
+            }
+        }
+        // Check south-west
+        opponentPieces = 0;
+        tmp.clear();
+        i = column - 1;
+        for (int j = row + 1; j < FIELD_SIZE && i >= 0; j++) {
+            if(board[i][j] == null){
+                break;
+            }
+            else if(board[i][j] == opponent){
+                opponentPieces++;
+                tmp.add(new Move(Column.toColumn(i), j + 1));
+            }
+            else if(board[i][j] == player && opponentPieces > 0){
+                toFlip.addAll(tmp);
+                tmp.clear();
+            }
+            i--;
+        }
+        // Check west
+        opponentPieces = 0;
+        tmp.clear();
+        for (i = column - 1; i >= 0; i--) {
+            if(board[i][row] == null){
+                break;
+            }
+            else if(board[i][row] == opponent){
+                opponentPieces++;
+                tmp.add(new Move(Column.toColumn(i), row + 1));
+            }
+            else if(board[i][row] == player && opponentPieces > 0){
+                toFlip.addAll(tmp);
+                tmp.clear();
+            }
+        }
+        // Check north-west
+        opponentPieces = 0;
+        tmp.clear();
+        i = column - 1;
+        for (int j = row - 1; j >= 0 &&  i >= 0; j--) {
+            if(board[i][j] == null){
+                break;
+            }
+            else if(board[i][j] == opponent){
+                opponentPieces++;
+                tmp.add(new Move(Column.toColumn(i), j + 1));
+            }
+            else if(board[i][j] == player && opponentPieces > 0){
+                toFlip.addAll(tmp);
+                tmp.clear();
+            }
+            i--;
+        }
+
+        // Flip pieces
+        int points = 0;
+
+        for (Move flip_move :
+                toFlip) {
+            int flip_column = flip_move.getColumn().toInt();
+            int flip_row = flip_move.getRow();
+
+            if(board[flip_column][flip_row] == opponent){
+                points++;
+                board[flip_column][flip_row] = player;
+            } else {
+                // Flip error
+                System.out.println("ASD");
+            }
+        }
+        return points;
     }
 
-    private int getPointsMove(Move move){
-        return 0;
-    }
-
-    private boolean move(Color[][] board, Move move){
-        return true;
+    private Move getBestMove(Color[][] board, int depth, Color player, Color opponent) throws ZugException {
+        Move bestMove = null;
+        ArrayList<Move> possibleMoves = getPossibleMoves(board, player, opponent);
+        return bestMove;
     }
 
     /**
