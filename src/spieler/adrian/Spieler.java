@@ -2,29 +2,31 @@ package spieler.adrian;
 
 import spieler.*;
 
-import javax.rmi.ssl.SslRMIClientSocketFactory;
 import java.util.ArrayList;
-import java.util.Random;
-import java.util.Vector;
 import java.util.concurrent.ThreadLocalRandom;
 
+/**
+ * Mit "spieler.adrian.Spieler:4" starten.
+ *
+ * Adrian Kaminski
+ */
 public class Spieler implements OthelloSpieler{
 
     @Override
     public Zug berechneZug(Zug zug, long l, long l1) throws ZugException {
-        // Zug des Gegners
+        // Enemy move
         if (zug != null && !zug.isPassen()){
            move(board,opponent, zug);
         }
 
-        // Passen, wenn kein Zug möglich ist.
+        // Forfeit turn if no move is possible
         ArrayList<Zug> possibleMoves = getPossibleMoves(board, player);
         if(possibleMoves.isEmpty()){
             printBoard(board);
             return Zug.passenZug();
         }
 
-        // Finde einen bestmöglichen Zug
+        // Find best moves
         ArrayList<Zug> bestMoves = new ArrayList<>();
         int bestMoveRating = Integer.MIN_VALUE;
         for (Zug move :
@@ -33,12 +35,12 @@ public class Spieler implements OthelloSpieler{
             Farbe[][] copyBoard = copy(board);
             move(copyBoard, player, move);
 
-            int rating = 0;
+            int rating;
             //rating = rateBoard(copyBoard, player, opponent);
             //rating = minimax(copyBoard, this.searchDepth, true);
-            rating = alphaBeta(copyBoard, this.searchDepth, Integer.MIN_VALUE, Integer.MAX_VALUE, true);
+            rating = alphaBeta(copyBoard, this.searchDepth, Integer.MIN_VALUE, Integer.MAX_VALUE, false);
 
-            System.out.println("\u001B[31m" + "PosMove: " + move.getSpalte() + move.getZeile() + " " + rating + "\u001B[0m");
+            System.out.println("\u001B[31m" + "PosMove: " + move + " " + rating + "\u001B[0m");
 
             if(rating >= bestMoveRating){
                 bestMoves.add(move);
@@ -48,10 +50,10 @@ public class Spieler implements OthelloSpieler{
 
         int x = 0;
         // Comment following line to deactivate picking random Move from bestMoves list.
-        x = ThreadLocalRandom.current().nextInt(0, bestMoves.size());
+        //x = ThreadLocalRandom.current().nextInt(0, bestMoves.size());
         Zug bestMove = bestMoves.get(x);
 
-        System.out.println("\u001B[36m" + "BestMove: " + bestMove.getSpalte() + bestMove.getZeile() + " " + bestMoveRating + "\u001B[0m");
+        System.out.println("\u001B[36m" + "BestMove: " + bestMove + " " + bestMoveRating + "\u001B[0m");
         move(board, player, bestMove);
 
         return bestMove;
@@ -83,7 +85,6 @@ public class Spieler implements OthelloSpieler{
         return "adrian";
     }
 
-    // Members
     private static final int FIELD_SIZE = 8;
     private final Farbe[][] board = new Farbe[8][8];
 
@@ -92,7 +93,6 @@ public class Spieler implements OthelloSpieler{
 
     private int searchDepth;
 
-    // Constructors
     public Spieler(){
 
     }
@@ -135,12 +135,11 @@ public class Spieler implements OthelloSpieler{
             return rateBoard(pBoard, this.player, this.opponent);
         }
 
-        Farbe[][] copyBoard = copy(pBoard);
-
         if(player){
             int maxRating = Integer.MIN_VALUE;
             for (Zug zug:
-                    getPossibleMoves(copyBoard, this.player)) {
+                    getPossibleMoves(pBoard, this.player)) {
+                Farbe[][] copyBoard = copy(pBoard);
                 move(copyBoard, this.player, zug);
                 int rating = alphaBeta(copyBoard, searchDepth - 1, alpha, beta,false);
                 maxRating = Integer.max(maxRating, rating);
@@ -154,7 +153,8 @@ public class Spieler implements OthelloSpieler{
         else {
             int minRating = Integer.MAX_VALUE;
             for (Zug zug:
-                    getPossibleMoves(copyBoard, this.opponent)) {
+                    getPossibleMoves(pBoard, this.opponent)) {
+                Farbe[][] copyBoard = copy(pBoard);
                 move(copyBoard, this.opponent, zug);
                 int rating = alphaBeta(copyBoard, searchDepth - 1, alpha, beta,true);
                 minRating = Integer.min(minRating, rating);
@@ -232,11 +232,11 @@ public class Spieler implements OthelloSpieler{
     private static final int[] rowDir = {0,1,1,1,0,-1,-1,-1};
     private static final int[] columnDir = {-1,-1,0,1,1,1,0,-1};
 
-    private static boolean isMoveValid(Farbe[][] board, Farbe player, Zug zug){
+    private static boolean isMoveValid(Farbe[][] pBoard, Farbe player, Zug zug){
         int row = zug.getZeile();
         int column = zug.getSpalte();
 
-        if(row < 0 || row >= 8 || column < 0 || column >= 8 || board[column][row] != null){
+        if(row < 0 || row >= 8 || column < 0 || column >= 8 || pBoard[column][row] != null){
             return false;
         }
         boolean movePossible = false;
@@ -246,19 +246,18 @@ public class Spieler implements OthelloSpieler{
             int currentRow = row + rowStep;
             int currentColumn = column + columnStep;
             int count = 0;
-            // count of opponent pieces encountered
+            // Count of opponent pieces encountered
             while(currentRow >= 0 && currentRow < 8 && currentColumn >= 0 && currentColumn < 8){
-                // Empty cell
-                if(board[currentColumn][currentRow] == null){
+                if(pBoard[currentColumn][currentRow] == null){
                     break;
                 }
-                else if(board[currentColumn][currentRow] != player){
+                else if(pBoard[currentColumn][currentRow] != player){
                     currentRow += rowStep;
                     currentColumn += columnStep;
                     count++;
                 }
                 else{
-                    // conversion is possible
+                    // Conversion is possible
                     if(count > 0){
                         movePossible = true;
                     }
@@ -276,12 +275,12 @@ public class Spieler implements OthelloSpieler{
         for (int i = 0; i < FIELD_SIZE; i++) {
             for (int j = 0; j < FIELD_SIZE; j++) {
                 if(pBoard[i][j] == player){
-                    //rating += matrix[i][j];
-                    rating++;
+                    rating += matrix[i][j];
+                    //rating++;
                 }
                 else if(pBoard[i][j] == opponent){
-                    //rating -= matrix[i][j];
-                    rating--;
+                    rating -= matrix[i][j];
+                    //rating--;
                 }
             }
         }
@@ -303,10 +302,5 @@ public class Spieler implements OthelloSpieler{
             }
             System.out.println();
         }
-    }
-
-    public int getRandomInt(int max){
-        Random random = new Random();
-        return random.nextInt(max);
     }
 }
