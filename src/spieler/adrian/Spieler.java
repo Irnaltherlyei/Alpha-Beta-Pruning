@@ -1,51 +1,81 @@
 package spieler.adrian;
 
-import spieler.Farbe;
-import spieler.OthelloSpieler;
-import spieler.Zug;
-import spieler.ZugException;
+import spieler.*;
 
+import javax.rmi.ssl.SslRMIClientSocketFactory;
 import java.util.ArrayList;
+import java.util.Random;
+import java.util.Vector;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class Spieler implements OthelloSpieler{
 
     @Override
     public Zug berechneZug(Zug zug, long l, long l1) throws ZugException {
-        // Update the board
-        if (zug != null){
-            Move previousMove = new Move(zug);
-            move(board, previousMove, opponent, player);
+        // Zug des Gegners
+        if (zug != null && !zug.isPassen()){
+           move(board,opponent, zug);
         }
 
-        ArrayList<Move> possibleMoves = getPossibleMoves(this.board, this.player, this.opponent);
-
+        // Passen, wenn kein Zug möglich ist.
+        ArrayList<Zug> possibleMoves = getPossibleMoves(board, player);
         if(possibleMoves.isEmpty()){
+            printBoard(board);
             return Zug.passenZug();
         }
 
-        Move bestMove = possibleMoves.get(0);
-        move(board, bestMove, player, opponent);
+        // Finde einen bestmöglichen Zug
+        ArrayList<Zug> bestMoves = new ArrayList<>();
+        int bestMoveRating = Integer.MIN_VALUE;
+        for (Zug move :
+                possibleMoves) {
 
-        return Move.moveToZug(bestMove);
+            Farbe[][] copyBoard = copy(board);
+            move(copyBoard, player, move);
+
+            int rating = 0;
+            //rating = rateBoard(copyBoard, player, opponent);
+            //rating = minimax(copyBoard, this.searchDepth, true);
+            rating = alphaBeta(copyBoard, this.searchDepth, Integer.MIN_VALUE, Integer.MAX_VALUE, true);
+
+            System.out.println("\u001B[31m" + "PosMove: " + move.getSpalte() + move.getZeile() + " " + rating + "\u001B[0m");
+
+            if(rating >= bestMoveRating){
+                bestMoves.add(move);
+                bestMoveRating = rating;
+            }
+        }
+
+        int x = 0;
+        // Comment following line to deactivate picking random Move from bestMoves list.
+        x = ThreadLocalRandom.current().nextInt(0, bestMoves.size());
+        Zug bestMove = bestMoves.get(x);
+
+        System.out.println("\u001B[36m" + "BestMove: " + bestMove.getSpalte() + bestMove.getZeile() + " " + bestMoveRating + "\u001B[0m");
+        move(board, player, bestMove);
+
+        return bestMove;
     }
 
     @Override
     public void neuesSpiel(Farbe farbe, int i) {
-        // Get the players color
-        player = Color.farbeToColor(farbe);
+        System.out.println("Search depth: " + searchDepth);
 
-        if(player == Color.BLACK) {
-            opponent = Color.WHITE;
+        // Get the players color
+        player = farbe;
+
+        if(player == Farbe.SCHWARZ) {
+            opponent = Farbe.WEISS;
         }
-        else if(player == Color.WHITE) {
-            opponent = Color.BLACK;
+        else if(player == Farbe.WEISS) {
+            opponent = Farbe.SCHWARZ;
         }
 
         // Prepare the board
-        board[Column.D.toInt()][row(4)] = Color.WHITE;
-        board[Column.D.toInt()][row(5)] = Color.BLACK;
-        board[Column.E.toInt()][row(4)] = Color.BLACK;
-        board[Column.E.toInt()][row(5)] = Color.WHITE;
+        this.board[3][3] = Farbe.WEISS;
+        this.board[3][4] = Farbe.SCHWARZ;
+        this.board[4][3] = Farbe.SCHWARZ;
+        this.board[4][4] = Farbe.WEISS;
     }
 
     @Override
@@ -53,98 +83,14 @@ public class Spieler implements OthelloSpieler{
         return "adrian";
     }
 
-    private enum Column {A(0),B(1),C(2),D(3),E(4),F(5),G(6),H(7);
-        private final int toInt;
-
-        Column(int value) {
-            this.toInt = value;
-        }
-
-        public int toInt() {
-            return toInt;
-        }
-
-        public static Column toColumn(int x){
-            return x == 0 ? Column.A :
-                    x == 1 ? Column.B :
-                            x == 2 ? Column.C :
-                                    x == 3 ? Column.D :
-                                            x == 4 ? Column.E :
-                                                    x == 5 ? Column.F :
-                                                            x == 6 ? Column.G :
-                                                                    x == 7 ? Column.H : null;
-        }
-    }
-
-    public static class Move{
-        final Column column;
-        final int row; // From 0 to 7
-
-        public Move(Zug zug)  throws ZugException{
-            Move move = zugToMove(zug);
-            this.column = move.getColumn();
-            this.row = move.getRow();
-        }
-
-        public Move(Column column, int row) throws ZugException {
-            this.column = column;
-            // Normal row number - 1 for array indexing.
-            this.row = row - 1;
-            if (this.row > 7 || this.row < 0){
-                throw new ZugException("Row " + row + " is invalid.");
-            }
-        }
-
-        public static Zug moveToZug(Move move){
-            return new Zug(move.getRow(), move.getColumn().toInt());
-        }
-
-        public Move zugToMove(Zug zug) throws ZugException {
-            Column column = zug.getSpalte() == 0 ? Column.A :
-                    zug.getSpalte() == 1 ? Column.B :
-                        zug.getSpalte() == 2 ? Column.C :
-                            zug.getSpalte() == 3 ? Column.D :
-                                zug.getSpalte() == 4 ? Column.E :
-                                    zug.getSpalte() == 5 ? Column.F :
-                                        zug.getSpalte() == 6 ? Column.G :
-                                          zug.getSpalte() == 7 ? Column.H : null;
-            int row = zug.getZeile();
-            return new Move(column, row + 1);
-        }
-
-        public Column getColumn() {
-            return column;
-        }
-
-        public int getRow() {
-            return row;
-        }
-    }
-
-    private enum Color {BLACK(1),WHITE(2);
-        private final int toInt;
-
-        Color(int value) {
-            this.toInt = value;
-        }
-
-        public int toInt() {
-            return toInt;
-        }
-
-        public static Color farbeToColor(Farbe farbe){
-            return farbe.equals(Farbe.WEISS) ? Color.WHITE :
-                    farbe.equals(Farbe.SCHWARZ) ? Color.BLACK : null;
-        }
-    }
-
     // Members
     private static final int FIELD_SIZE = 8;
+    private final Farbe[][] board = new Farbe[8][8];
 
-    private final Color[][] board = new Color[8][8];
+    private Farbe player;
+    private Farbe opponent;
+
     private int searchDepth;
-    private Color player;
-    private Color opponent;
 
     // Constructors
     public Spieler(){
@@ -155,327 +101,212 @@ public class Spieler implements OthelloSpieler{
         this.searchDepth = depth;
     }
 
-    // Methods
-    private ArrayList<Move> getPossibleMoves(Color[][] board, Color player, Color opponent) throws ZugException {
-        ArrayList<Move> list = new ArrayList<Move>();
+    private int minimax(Farbe[][] board, int searchDepth, boolean player) throws ZugException {
+        if(searchDepth == 0 || getPossibleMoves(board, player ? this.player : this.opponent).isEmpty()){
+            return rateBoard(board, this.player, this.opponent);
+        }
+
+        Farbe[][] copyBoard = copy(board);
+
+        if(player){
+            int maxRating = Integer.MIN_VALUE;
+            for (Zug zug:
+                 getPossibleMoves(copyBoard, this.player)) {
+                move(copyBoard, this.player, zug);
+                int rating = minimax(copyBoard, searchDepth - 1, false);
+                maxRating = Integer.max(maxRating, rating);
+            }
+            return maxRating;
+        }
+        else {
+            int minRating = Integer.MAX_VALUE;
+            for (Zug zug:
+                    getPossibleMoves(copyBoard, this.opponent)) {
+                move(copyBoard, this.opponent, zug);
+                int rating = minimax(copyBoard, searchDepth - 1, true);
+                minRating = Integer.min(minRating, rating);
+            }
+            return minRating;
+        }
+    }
+
+    private int alphaBeta(Farbe[][] pBoard, int searchDepth, int alpha, int beta, boolean player) throws ZugException {
+        if(searchDepth == 0 || getPossibleMoves(pBoard, player ? this.player : this.opponent).isEmpty()){
+            return rateBoard(pBoard, this.player, this.opponent);
+        }
+
+        Farbe[][] copyBoard = copy(pBoard);
+
+        if(player){
+            int maxRating = Integer.MIN_VALUE;
+            for (Zug zug:
+                    getPossibleMoves(copyBoard, this.player)) {
+                move(copyBoard, this.player, zug);
+                int rating = alphaBeta(copyBoard, searchDepth - 1, alpha, beta,false);
+                maxRating = Integer.max(maxRating, rating);
+                alpha = Integer.max(alpha, rating);
+                if (beta <= alpha){
+                    break;
+                }
+            }
+            return maxRating;
+        }
+        else {
+            int minRating = Integer.MAX_VALUE;
+            for (Zug zug:
+                    getPossibleMoves(copyBoard, this.opponent)) {
+                move(copyBoard, this.opponent, zug);
+                int rating = alphaBeta(copyBoard, searchDepth - 1, alpha, beta,true);
+                minRating = Integer.min(minRating, rating);
+                beta = Integer.min(beta, rating);
+                if (beta <= alpha){
+                    break;
+                }
+            }
+            return minRating;
+        }
+    }
+
+    private int move(Farbe[][] board, Farbe player, Zug zug){
+        int row = zug.getZeile();
+        int column = zug.getSpalte();
+
+        int count = 0;
+        for(int i = 0; i < rowDir.length; i++){
+            int rowStep = rowDir[i];
+            int columnStep = columnDir[i];
+            int currentRow = row + rowStep;
+            int currentColumn = column + columnStep;
+            // Count of opponent pieces found
+            while(currentRow >= 0 && currentRow < 8 && currentColumn >= 0 && currentColumn < 8){
+                // Empty cell
+                if(board[currentColumn][currentRow] == null){
+                    break;
+                }
+                else if(board[currentColumn][currentRow] != player){
+                    currentRow += rowStep;
+                    currentColumn += columnStep;
+                    count++;
+                }
+                else{
+                    // Conversion is possible
+                    if(count > 0){
+                        int convertRow = currentRow - rowStep;
+                        int convertColumn = currentColumn - columnStep;
+                        while(convertRow != row || convertColumn != column){
+                            board[convertColumn][convertRow] = player;
+                            convertRow = convertRow - rowStep;
+                            convertColumn = convertColumn - columnStep;
+                        }
+                        count++;
+                    }
+                    break;
+                }
+            }
+        }
+        board[column][row] = player;
+
+        return count;
+    }
+
+    private ArrayList<Zug> getPossibleMoves(Farbe[][] board, Farbe player) throws ZugException {
+        ArrayList<Zug> list = new ArrayList<>();
 
         for (int i = 0; i < FIELD_SIZE; i++) {
             for (int j = 0; j < FIELD_SIZE; j++) {
 
                 // No need to check occupied field
-                if(board[i][j] == opponent || board[i][j] == player){
+                if(board[i][j] != null){
                     continue;
                 }
 
-                Move move = new Move(Column.toColumn(i), j + 1);
-                if(isMoveValid(board, move, player, opponent)){
-                    list.add(move);
+                Zug zug = new Zug(j, i);
+                if(isMoveValid(board, player, zug)){
+                    list.add(zug);
                 }
             }
         }
         return list;
     }
 
-    private boolean isMoveValid(Color[][] board, Move move, Color player, Color opponent) {
-        // Positions of the move
-        int column = move.getColumn().toInt();
-        int row = move.getRow();
+    private static final int[] rowDir = {0,1,1,1,0,-1,-1,-1};
+    private static final int[] columnDir = {-1,-1,0,1,1,1,0,-1};
 
-        int opponentPieces = 0;
+    private static boolean isMoveValid(Farbe[][] board, Farbe player, Zug zug){
+        int row = zug.getZeile();
+        int column = zug.getSpalte();
 
-        // Check north
-        for (int j = row - 1; j >= 0; j--) {
-            if(board[column][j] == null || board[column][j] == player && opponentPieces == 0){
-                break;
-            }
-            else if(board[column][j] == opponent){
-                opponentPieces++;
-            }
-            else if(board[column][j] == player && opponentPieces > 0){
-                return true;
+        if(row < 0 || row >= 8 || column < 0 || column >= 8 || board[column][row] != null){
+            return false;
+        }
+        boolean movePossible = false;
+        for(int i = 0; i < rowDir.length; i++){
+            int rowStep = rowDir[i];
+            int columnStep = columnDir[i];
+            int currentRow = row + rowStep;
+            int currentColumn = column + columnStep;
+            int count = 0;
+            // count of opponent pieces encountered
+            while(currentRow >= 0 && currentRow < 8 && currentColumn >= 0 && currentColumn < 8){
+                // Empty cell
+                if(board[currentColumn][currentRow] == null){
+                    break;
+                }
+                else if(board[currentColumn][currentRow] != player){
+                    currentRow += rowStep;
+                    currentColumn += columnStep;
+                    count++;
+                }
+                else{
+                    // conversion is possible
+                    if(count > 0){
+                        movePossible = true;
+                    }
+                    break;
+                }
             }
         }
-        // Check north-east
-        opponentPieces = 0;
-        int i = column + 1;
-        for (int j = row - 1; j >= 0 && i < FIELD_SIZE; j--) {
-            if(board[i][j] == null || board[i][j] == player && opponentPieces == 0){
-                break;
-            }
-            else if(board[i][j] == opponent){
-                opponentPieces++;
-            }
-            else if(board[i][j] == player && opponentPieces > 0){
-                return true;
-            }
-            i++;
-        }
-        // Check east
-        opponentPieces = 0;
-        for (i = column + 1; i < FIELD_SIZE; i++) {
-            if(board[i][row] == null || board[i][row] == player && opponentPieces == 0){
-                break;
-            }
-            else if(board[i][row] == opponent){
-                opponentPieces++;
-            }
-            else if(board[i][row] == player && opponentPieces > 0){
-                return true;
-            }
-        }
-        // Check south-east
-        opponentPieces = 0;
-        i = column + 1;
-        for (int j = row + 1; j < FIELD_SIZE && i < FIELD_SIZE; j++) {
-            if(board[i][j] == null || board[i][j] == player && opponentPieces == 0){
-                break;
-            }
-            else if(board[i][j] == opponent){
-                opponentPieces++;
-            }
-            else if(board[i][j] == player && opponentPieces > 0){
-                return true;
-            }
-            i++;
-        }
-        // Check south
-        opponentPieces = 0;
-        for (int j = row + 1; j < FIELD_SIZE ; j++) {
-            if(board[column][j] == null || board[column][j] == player && opponentPieces == 0){
-                break;
-            }
-            else if(board[column][j] == opponent){
-                opponentPieces++;
-            }
-            else if(board[column][j] == player && opponentPieces > 0){
-                return true;
-            }
-        }
-        // Check south-west
-        opponentPieces = 0;
-        i = column - 1;
-        for (int j = row + 1; j < FIELD_SIZE && i >= 0; j++) {
-            if(board[i][j] == null || board[i][j] == player && opponentPieces == 0){
-                break;
-            }
-            else if(board[i][j] == opponent){
-                opponentPieces++;
-            }
-            else if(board[i][j] == player && opponentPieces > 0){
-                return true;
-            }
-            i--;
-        }
-        // Check west
-        opponentPieces = 0;
-        for (i = column - 1; i >= 0; i--) {
-            if(board[i][row] == null || board[i][row] == player && opponentPieces == 0){
-                break;
-            }
-            else if(board[i][row] == opponent){
-                opponentPieces++;
-            }
-            else if(board[i][row] == player && opponentPieces > 0){
-                return true;
-            }
-        }
-        // Check north-west
-        opponentPieces = 0;
-        i = column - 1;
-        for (int j = row - 1; j >= 0 &&  i >= 0; j--) {
-            if(board[i][j] == null || board[i][j] == player && opponentPieces == 0){
-                break;
-            }
-            else if(board[i][j] == opponent){
-                opponentPieces++;
-            }
-            else if(board[i][j] == player && opponentPieces > 0){
-                return true;
-            }
-            i--;
-        }
-        return false;
+        return movePossible;
     }
 
-    private int move(Color[][] board, Move move, Color player, Color opponent) throws ZugException {
-        ArrayList<Move> toFlip = new ArrayList<Move>();
-        ArrayList<Move> tmp = new ArrayList<Move>();
+    private static final int[][] matrix = {{50,-1,5,2,2,5,-1,50},{-1,-10,1,1,1,1,-10,-1},{5,1,1,1,1,1,1,5},{2,1,1,0,0,1,1,2},{2,1,1,0,0,1,1,2},{5,1,1,1,1,1,1,5},{-1,-10,1,1,1,1,-10,-1},{50,-1,5,2,2,5,-1,50}};
 
-        int column = move.getColumn().toInt();
-        int row = move.getRow();
-
-        board[column][row] = player;
-
-        // Check pieces to flip
-        int opponentPieces = 0;
-        tmp.clear();
-        // Check north
-        for (int j = row - 1; j >= 0; j--) {
-            if(board[column][j] == null){
-                break;
-            }
-            else if(board[column][j] == opponent){
-                opponentPieces++;
-                tmp.add(new Move(Column.toColumn(column), j + 1));
-            }
-            else if(board[column][j] == player && opponentPieces > 0){
-                toFlip.addAll(tmp);
-                tmp.clear();
+    private int rateBoard(Farbe[][] pBoard, Farbe player, Farbe opponent){
+        int rating = 0;
+        for (int i = 0; i < FIELD_SIZE; i++) {
+            for (int j = 0; j < FIELD_SIZE; j++) {
+                if(pBoard[i][j] == player){
+                    //rating += matrix[i][j];
+                    rating++;
+                }
+                else if(pBoard[i][j] == opponent){
+                    //rating -= matrix[i][j];
+                    rating--;
+                }
             }
         }
-        // Check north-east
-        opponentPieces = 0;
-        tmp.clear();
-        int i = column + 1;
-        for (int j = row - 1; j >= 0 && i < FIELD_SIZE; j--) {
-            if(board[i][j] == null){
-                break;
-            }
-            else if(board[i][j] == opponent){
-                opponentPieces++;
-                tmp.add(new Move(Column.toColumn(i), j + 1));
-            }
-            else if(board[i][j] == player && opponentPieces > 0){
-                toFlip.addAll(tmp);
-                tmp.clear();
-            }
-            i++;
-        }
-        // Check east
-        opponentPieces = 0;
-        tmp.clear();
-        for (i = column + 1; i < FIELD_SIZE; i++) {
-            if(board[i][row] == null){
-                break;
-            }
-            else if(board[i][row] == opponent){
-                opponentPieces++;
-                tmp.add(new Move(Column.toColumn(i), row + 1));
-            }
-            else if(board[i][row] == player && opponentPieces > 0){
-                toFlip.addAll(tmp);
-                tmp.clear();
-            }
-        }
-        // Check south-east
-        opponentPieces = 0;
-        tmp.clear();
-        i = column + 1;
-        for (int j = row + 1; j < FIELD_SIZE && i < FIELD_SIZE; j++) {
-            if(board[i][j] == null){
-                break;
-            }
-            else if(board[i][j] == opponent){
-                opponentPieces++;
-                tmp.add(new Move(Column.toColumn(i), j + 1));
-            }
-            else if(board[i][j] == player && opponentPieces > 0){
-                toFlip.addAll(tmp);
-                tmp.clear();
-            }
-            i++;
-        }
-        // Check south
-        opponentPieces = 0;
-        tmp.clear();
-        for (int j = row + 1; j < FIELD_SIZE ; j++) {
-            if(board[column][j] == null){
-                break;
-            }
-            else if(board[column][j] == opponent){
-                opponentPieces++;
-                tmp.add(new Move(Column.toColumn(column), j + 1));
-            }
-            else if(board[column][j] == player && opponentPieces > 0){
-                toFlip.addAll(tmp);
-                tmp.clear();
-            }
-        }
-        // Check south-west
-        opponentPieces = 0;
-        tmp.clear();
-        i = column - 1;
-        for (int j = row + 1; j < FIELD_SIZE && i >= 0; j++) {
-            if(board[i][j] == null){
-                break;
-            }
-            else if(board[i][j] == opponent){
-                opponentPieces++;
-                tmp.add(new Move(Column.toColumn(i), j + 1));
-            }
-            else if(board[i][j] == player && opponentPieces > 0){
-                toFlip.addAll(tmp);
-                tmp.clear();
-            }
-            i--;
-        }
-        // Check west
-        opponentPieces = 0;
-        tmp.clear();
-        for (i = column - 1; i >= 0; i--) {
-            if(board[i][row] == null){
-                break;
-            }
-            else if(board[i][row] == opponent){
-                opponentPieces++;
-                tmp.add(new Move(Column.toColumn(i), row + 1));
-            }
-            else if(board[i][row] == player && opponentPieces > 0){
-                toFlip.addAll(tmp);
-                tmp.clear();
-            }
-        }
-        // Check north-west
-        opponentPieces = 0;
-        tmp.clear();
-        i = column - 1;
-        for (int j = row - 1; j >= 0 &&  i >= 0; j--) {
-            if(board[i][j] == null){
-                break;
-            }
-            else if(board[i][j] == opponent){
-                opponentPieces++;
-                tmp.add(new Move(Column.toColumn(i), j + 1));
-            }
-            else if(board[i][j] == player && opponentPieces > 0){
-                toFlip.addAll(tmp);
-                tmp.clear();
-            }
-            i--;
-        }
-
-        // Flip pieces
-        int points = 0;
-
-        for (Move flip_move :
-                toFlip) {
-            int flip_column = flip_move.getColumn().toInt();
-            int flip_row = flip_move.getRow();
-
-            if(board[flip_column][flip_row] == opponent){
-                points++;
-                board[flip_column][flip_row] = player;
-            } else {
-                // Flip error
-                System.out.println("ASD");
-            }
-        }
-        return points;
+        return rating;
     }
 
-    private Move getBestMove(Color[][] board, int depth, Color player, Color opponent) throws ZugException {
-        Move bestMove = null;
-        ArrayList<Move> possibleMoves = getPossibleMoves(board, player, opponent);
-        return bestMove;
+    private Farbe[][] copy(Farbe[][] board){
+        Farbe[][] arrayCopy = new Farbe[FIELD_SIZE][FIELD_SIZE];
+        for (int i = 0; i < board.length; i++) {
+            System.arraycopy(board[i], 0, arrayCopy[i], 0, board[i].length);
+        }
+        return arrayCopy;
     }
 
-    /**
-     * Converts normal row to array index.
-     *
-     * @param row as number from 1 to 8
-     * @return array index from 0 to
-     */
-    private int row(int row){
-        return row - 1;
+    public void printBoard(Farbe[][] board){
+        for (int i = 0; i < FIELD_SIZE; i++) {
+            for (int j = 0; j < FIELD_SIZE; j++) {
+                System.out.print(board[i][j] == null ? " " : board[i][j]);
+            }
+            System.out.println();
+        }
+    }
+
+    public int getRandomInt(int max){
+        Random random = new Random();
+        return random.nextInt(max);
     }
 }
