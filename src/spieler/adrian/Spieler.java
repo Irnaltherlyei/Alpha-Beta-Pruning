@@ -3,6 +3,7 @@ package spieler.adrian;
 import spieler.*;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -13,6 +14,7 @@ import java.util.concurrent.ThreadLocalRandom;
  *
  * Es gibt eine "Random" Komponente. Wenn mehrere Züge mit dem gleichen Rating gefunden werden,
  * wird einer davon zufällig ausgewählt.
+ * Also gibt es mehrere Ausgangsmöglichkeiten mit den gleichen AI Spielern.
  *
  * Adrian Kaminski
  */
@@ -75,6 +77,9 @@ public class Spieler implements OthelloSpieler{
     public void neuesSpiel(Farbe farbe, int i) {
         System.out.println("Search depth: " + searchDepth);
 
+        //Arrays.stream(board).forEach(x -> Arrays.fill(x, null));
+        board = new Farbe[FIELD_SIZE][FIELD_SIZE];
+
         // Get the players color
         player = farbe;
 
@@ -98,7 +103,7 @@ public class Spieler implements OthelloSpieler{
     }
 
     private static final int FIELD_SIZE = 8;
-    private final Farbe[][] board = new Farbe[8][8];
+    private Farbe[][] board = new Farbe[8][8];
 
     private Farbe player;
     private Farbe opponent;
