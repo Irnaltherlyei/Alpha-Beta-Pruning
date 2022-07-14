@@ -20,8 +20,7 @@ public class Othello
         List<String> spieler =
                 new ArrayList<String>();
         //Die Spieler
-        spieler.add("spieler.Referenzspieler:1"); //Referenzspieler in Standardeinstellung
-        //spieler.add("spieler.paul.Spieler:4");
+        spieler.add("spieler.Referenzspieler:6"); //Referenzspieler in Standardeinstellung
         spieler.add("spieler.adrian.Spieler:6");
 
         new OthelloArena(150,  //Gesamtbedenkzeit in Sekunden

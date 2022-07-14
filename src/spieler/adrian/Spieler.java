@@ -3,10 +3,18 @@ package spieler.adrian;
 import spieler.*;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Mit "spieler.adrian.Spieler:4" starten.
+ *
+ * Noch keine Zeitüberprüfung. Wenn also eine Zeitüberschreitung eintritt sollte man die Suchtiefe verringern.
+ *
+ * Es gibt eine "Random" Komponente. Wenn mehrere Züge mit dem gleichen Rating gefunden werden,
+ * wird einer davon zufällig ausgewählt.
+ * Also gibt es mehrere Ausgangsmöglichkeiten mit den gleichen AI Spielern.
  *
  * Adrian Kaminski
  */
@@ -22,16 +30,14 @@ public class Spieler implements OthelloSpieler{
         // Forfeit turn if no move is possible
         ArrayList<Zug> possibleMoves = getPossibleMoves(board, player);
         if(possibleMoves.isEmpty()){
-            printBoard(board);
             return Zug.passenZug();
         }
 
         // Find best moves
-        ArrayList<Zug> bestMoves = new ArrayList<>();
-        int bestMoveRating = Integer.MIN_VALUE;
+        ArrayList<Integer> ratings = new ArrayList<>();
+
         for (Zug move :
                 possibleMoves) {
-
             Farbe[][] copyBoard = copy(board);
             move(copyBoard, player, move);
 
@@ -42,18 +48,26 @@ public class Spieler implements OthelloSpieler{
 
             System.out.println("\u001B[31m" + "PosMove: " + move + " " + rating + "\u001B[0m");
 
-            if(rating >= bestMoveRating){
-                bestMoves.add(move);
-                bestMoveRating = rating;
+            ratings.add(rating);
+        }
+
+        // Getting all best moves e.g. when 2 moves have a rating of 42.
+        ArrayList<Zug> bestMoves = new ArrayList<>();
+
+        int maxRating = Collections.max(ratings);
+
+        for (int i = 0; i < ratings.size(); i++) {
+            if(ratings.get(i) == maxRating){
+                bestMoves.add(possibleMoves.get(i));
             }
         }
 
         int x = 0;
-        // Comment following line to deactivate picking random Move from bestMoves list.
-        //x = ThreadLocalRandom.current().nextInt(0, bestMoves.size());
+        // (Un)Comment following line to (De)activate picking random move from bestMoves list.
+        x = ThreadLocalRandom.current().nextInt(0, bestMoves.size());
         Zug bestMove = bestMoves.get(x);
 
-        System.out.println("\u001B[36m" + "BestMove: " + bestMove + " " + bestMoveRating + "\u001B[0m");
+        System.out.println("\u001B[36m" + "BestMove: " + bestMove + " " + maxRating + "\u001B[0m");
         move(board, player, bestMove);
 
         return bestMove;
@@ -62,6 +76,9 @@ public class Spieler implements OthelloSpieler{
     @Override
     public void neuesSpiel(Farbe farbe, int i) {
         System.out.println("Search depth: " + searchDepth);
+
+        //Arrays.stream(board).forEach(x -> Arrays.fill(x, null));
+        board = new Farbe[FIELD_SIZE][FIELD_SIZE];
 
         // Get the players color
         player = farbe;
@@ -86,7 +103,7 @@ public class Spieler implements OthelloSpieler{
     }
 
     private static final int FIELD_SIZE = 8;
-    private final Farbe[][] board = new Farbe[8][8];
+    private Farbe[][] board = new Farbe[8][8];
 
     private Farbe player;
     private Farbe opponent;
@@ -101,6 +118,9 @@ public class Spieler implements OthelloSpieler{
         this.searchDepth = depth;
     }
 
+    /**
+     * Simple minimax algorithm
+     */
     private int minimax(Farbe[][] board, int searchDepth, boolean player) throws ZugException {
         if(searchDepth == 0 || getPossibleMoves(board, player ? this.player : this.opponent).isEmpty()){
             return rateBoard(board, this.player, this.opponent);
@@ -130,16 +150,21 @@ public class Spieler implements OthelloSpieler{
         }
     }
 
+    /**
+     * Simple alpha beta pruning
+     */
     private int alphaBeta(Farbe[][] pBoard, int searchDepth, int alpha, int beta, boolean player) throws ZugException {
         if(searchDepth == 0 || getPossibleMoves(pBoard, player ? this.player : this.opponent).isEmpty()){
             return rateBoard(pBoard, this.player, this.opponent);
         }
 
+        Farbe[][] copyBoard = copy(pBoard);
+
         if(player){
             int maxRating = Integer.MIN_VALUE;
             for (Zug zug:
                     getPossibleMoves(pBoard, this.player)) {
-                Farbe[][] copyBoard = copy(pBoard);
+                copyBoard = copy(pBoard);
                 move(copyBoard, this.player, zug);
                 int rating = alphaBeta(copyBoard, searchDepth - 1, alpha, beta,false);
                 maxRating = Integer.max(maxRating, rating);
@@ -154,7 +179,7 @@ public class Spieler implements OthelloSpieler{
             int minRating = Integer.MAX_VALUE;
             for (Zug zug:
                     getPossibleMoves(pBoard, this.opponent)) {
-                Farbe[][] copyBoard = copy(pBoard);
+                copyBoard = copy(pBoard);
                 move(copyBoard, this.opponent, zug);
                 int rating = alphaBeta(copyBoard, searchDepth - 1, alpha, beta,true);
                 minRating = Integer.min(minRating, rating);
@@ -167,6 +192,14 @@ public class Spieler implements OthelloSpieler{
         }
     }
 
+    /**
+     * Places a piece at a position and flips all other pieces which can be flipped.
+     *
+     * @param board current board state
+     * @param player whose turn it is
+     * @param zug position to place piece
+     * @return count of pieces flipped
+     */
     private int move(Farbe[][] board, Farbe player, Zug zug){
         int row = zug.getZeile();
         int column = zug.getSpalte();
@@ -209,6 +242,13 @@ public class Spieler implements OthelloSpieler{
         return count;
     }
 
+    /**
+     * Gets all possible moves for the given player on the given board state,
+     *
+     * @param board as current board state
+     * @param player to check for possible moves
+     * @return a list of all possible moves
+     */
     private ArrayList<Zug> getPossibleMoves(Farbe[][] board, Farbe player) throws ZugException {
         ArrayList<Zug> list = new ArrayList<>();
 
@@ -232,6 +272,14 @@ public class Spieler implements OthelloSpieler{
     private static final int[] rowDir = {0,1,1,1,0,-1,-1,-1};
     private static final int[] columnDir = {-1,-1,0,1,1,1,0,-1};
 
+    /**
+     * Checks if a given move is valid.
+     *
+     * @param pBoard as current board state
+     * @param player to check if the move is possible
+     * @param zug as the position of the move
+     * @return true if the move is possible
+     */
     private static boolean isMoveValid(Farbe[][] pBoard, Farbe player, Zug zug){
         int row = zug.getZeile();
         int column = zug.getSpalte();
@@ -270,6 +318,14 @@ public class Spieler implements OthelloSpieler{
 
     private static final int[][] matrix = {{50,-1,5,2,2,5,-1,50},{-1,-10,1,1,1,1,-10,-1},{5,1,1,1,1,1,1,5},{2,1,1,0,0,1,1,2},{2,1,1,0,0,1,1,2},{5,1,1,1,1,1,1,5},{-1,-10,1,1,1,1,-10,-1},{50,-1,5,2,2,5,-1,50}};
 
+    /**
+     * Rates the current board.
+     *
+     * @param pBoard as current board state
+     * @param player
+     * @param opponent
+     * @return rating of the board
+     */
     private int rateBoard(Farbe[][] pBoard, Farbe player, Farbe opponent){
         int rating = 0;
         for (int i = 0; i < FIELD_SIZE; i++) {
